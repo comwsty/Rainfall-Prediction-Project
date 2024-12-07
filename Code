@@ -1,0 +1,482 @@
+from tkinter import *
+import tkinter as tk
+from tkinter import messagebox
+import psycopg2
+from tkinter import Tk, Label
+import pandas as pd
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+
+
+db_name = 'postgres'
+db_user = 'postgres'
+db_password = '5658'
+db_host = 'localhost'
+db_port = '5432'
+
+
+def create_connection():
+    try:
+        connection = psycopg2.connect(
+            dbname=db_name,
+            user=db_user,
+            password=db_password,
+            host=db_host,
+            port=db_port
+        )
+        cursor = connection.cursor()
+        return connection, cursor
+    except Exception as e:
+        messagebox.showerror('Error', f'Database error: {str(e)}')
+        return None, None
+
+
+def close_connection(connection, cursor):
+    if connection:
+        connection.close()
+    if cursor:
+        cursor.close()
+
+
+def execute_query(query, params=None, fetchall=True):
+    connection, cursor = create_connection()
+    try:
+        cursor.execute(query, params)
+        connection.commit()
+        if fetchall:
+            return cursor.fetchall()
+        else:
+            return None
+    except Exception as e:
+        connection.rollback()
+        messagebox.showerror('Ошибка', f'Ошибка базы данных: {str(e)}')
+        return None
+    finally:
+        close_connection(connection, cursor)
+
+
+root = Tk()
+root.title('Login')
+root.geometry('500x500+500+150')
+root.configure(bg="#F8F8FF")
+root.resizable(False, False)
+
+
+def signup_command():
+    window = Toplevel(root)
+    window.title('Sign up')
+    window.geometry('500x500+500+150')
+    window.configure(bg='#2F3C7E')
+    window.resizable(False, False)
+
+    def sign_up():
+        username = user.get()
+        password = code.get()
+        confirm_password = conform_code.get()
+
+        if password == confirm_password:
+            window.destroy()
+            additional_info_window(username, password)
+        else:
+            messagebox.showerror('Error', 'Passwords do not match')
+
+    def additional_info_window(username, password):
+        additional_window = Toplevel(root)
+        additional_window.title('Additional information')
+        additional_window.geometry('500x500+500+150')
+        additional_window.configure(bg='#2F3C7E')
+        additional_window.resizable(False, False)
+
+        Label(additional_window, text='Fill the form', fg='white', bg='#2F3C7E',
+              font=('Microsoft YaHei UI Light', 30, 'bold')).place(x=130, y=50)
+
+        Label(additional_window, text='Enter address:', fg='white', bg='#2F3C7E',
+              font=('Microsoft YaHei UI Light', 11)).place(x=100, y=160)
+        address_entry = Entry(additional_window, width=25, fg='black', border=0, bg='white',
+                              font=('Microsoft YaHei UI Light', 11))
+        address_entry.place(x=220, y=160)
+
+        Label(additional_window, text='Enter phone number:', fg='white', bg='#2F3C7E',
+              font=('Microsoft YaHei UI Light', 11)).place(x=50, y=220)
+        phone_entry = Entry(additional_window, width=25, fg='black', border=0, bg='white',
+                            font=('Microsoft YaHei UI Light', 11))
+        phone_entry.place(x=220, y=220)
+
+        def submit_additional_info():
+            address = address_entry.get()
+            phone_number = phone_entry.get()
+
+            try:
+                connection = psycopg2.connect(
+                    dbname=db_name,
+                    user=db_user,
+                    password=db_password,
+                    host=db_host,
+                    port=db_port
+                )
+                cursor = connection.cursor()
+                cursor.execute(
+                    "INSERT INTO users (username, password, address, phone) VALUES (%s, %s, %s, %s)",
+                    (username, password, address, phone_number))
+                connection.commit()
+
+                messagebox.showinfo('Sign up', 'Successfully signed up')
+                cursor.close()
+                connection.close()
+                additional_window.destroy()
+            except Exception as e:
+                messagebox.showerror('Error', f'Database error: {str(e)}')
+
+        Button(additional_window, width=39, pady=7, text='Summit', bg='white', fg='#2F3C7E', border=0,
+               command=submit_additional_info).place(x=110, y=320)
+
+    def sign():
+        window.destroy()
+
+    Label(window, border=0, bg='#2F3C7E').place(x=50, y=90)
+
+    frame = Frame(window, width=350, height=390, bg='#2F3C7E')
+    frame.place(x=75, y=50)
+
+    heading = Label(frame, text='Sign up', fg='white', bg='#2F3C7E', font=('Microsoft YaHei UI Light', 30, 'bold'))
+    heading.place(x=100, y=5)
+
+    #############-------------------------------------------------------
+
+    def on_enter(e):
+        user.delete(0, 'end')
+
+    def on_leave(e):
+        name = user.get()
+        if name == '':
+            user.insert(0, 'Username')
+
+    user = Entry(frame, width=25, fg='white', border=0, bg='#2F3C7E', font=('Microsoft YaHei UI Light', 11))
+    user.place(x=30, y=80)
+    user.insert(0, 'Username')
+    user.bind('<FocusIn>', on_enter)
+    user.bind('<FocusOut>', on_leave)
+
+    Frame(frame, width=295, height=2, bg='white').place(x=25, y=107)
+
+    #############-------------------------------------------------------
+
+    def on_enter(e):
+        code.delete(0, 'end')
+
+    def on_leave(e):
+        name = code.get()
+        if name == '':
+            code.insert(0, 'Password')
+
+    code = Entry(frame, width=25, fg='white', border=0, bg='#2F3C7E', font=('Microsoft YaHei UI Light', 11))
+    code.place(x=30, y=150)
+    code.insert(0, 'Password')
+    code.bind('<FocusIn>', on_enter)
+    code.bind('<FocusOut>', on_leave)
+
+    Frame(frame, width=295, height=2, bg='white').place(x=25, y=177)
+
+    #############-------------------------------------------------------
+
+    def on_enter(e):
+        conform_code.delete(0, 'end')
+
+    def on_leave(e):
+        name = conform_code.get()
+        if name == '':
+            conform_code.insert(0, 'Password')
+
+    conform_code = Entry(frame, width=25, fg='white', border=0, bg='#2F3C7E', font=('Microsoft YaHei UI Light', 11))
+    conform_code.place(x=30, y=220)
+    conform_code.insert(0, 'Confirm password')
+    conform_code.bind('<FocusIn>', on_enter)
+    conform_code.bind('<FocusOut>', on_leave)
+
+    Frame(frame, width=295, height=2, bg='white').place(x=25, y=247)
+
+    #############-------------------------------------------------------
+
+    Button(frame, width=39, pady=7, text='Sign up', bg='white', fg='#2F3C7E', border=0, command=sign_up).place(x=35,
+                                                                                                               y=280)
+
+    label = Button(frame, width=20, text="Log in", border=0, fg='white', cursor='hand2', bg='#2F3C7E',
+                   font=('Microsoft YaHei UI Light', 9), command=sign)
+    label.place(x=100, y=330)
+
+    window.mainloop()
+
+
+Label(root, bg='#F8F8FF').place(x=50, y=50)
+
+frame = Frame(root, width=350, height=350, bg='#F8F8FF')
+frame.place(x=75, y=70)
+
+heading = Label(frame, text='Welcome!', fg='#2F3C7E', bg='#F8F8FF', font=('Microsoft YaHei UI Light', 25, 'bold'))
+heading.place(x=100, y=5)
+
+
+#############-----------------------------------------------------
+
+def on_enter(e):
+    user.delete(0, 'end')
+
+
+def on_leave(e):
+    name = user.get()
+    if name == '':
+        user.insert(0, 'Username')
+
+
+user = Entry(frame, width=25, fg='black', border=0, bg='#F8F8FF', font=('Microsoft YaHei UI Light', 11))
+user.place(x=30, y=80)
+user.insert(0, 'Username')
+user.bind('<FocusIn>', on_enter)
+user.bind('<FocusOut>', on_leave)
+
+Frame(frame, width=295, height=2, bg='black').place(x=25, y=107)
+
+
+#############-------------------------------------------------------
+
+def on_enter(e):
+    code.delete(0, 'end')
+
+
+def on_leave(e):
+    name = code.get()
+    if name == '':
+        code.insert(0, 'Password')
+
+
+code = Entry(frame, width=25, fg='black', border=0, bg='#F8F8FF', font=('Microsoft YaHei UI Light', 11))
+code.place(x=30, y=150)
+code.insert(0, 'Password')
+code.bind('<FocusIn>', on_enter)
+code.bind('<FocusOut>', on_leave)
+
+Frame(frame, width=295, height=2, bg='black').place(x=25, y=177)
+
+
+#############-------------------------------------------------------
+
+def login_command():
+    username = user.get()
+    password = code.get()
+
+    try:
+        connection = psycopg2.connect(
+            dbname=db_name,
+            user=db_user,
+            password=db_password,
+            host=db_host,
+            port=db_port
+        )
+
+        cursor = connection.cursor()
+
+        cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s", (username, password))
+        user_data = cursor.fetchone()
+
+        if user_data:
+            username = user_data[0]
+            address = user_data[2]
+            phone_number = user_data[3]
+            password = user_data[1]
+            root.destroy()
+            open_page1_window()
+
+        else:
+            messagebox.showerror('Error', 'Wrong username or password. Try again.')
+
+    except Exception as e:
+        messagebox.showerror('Error', f'Database error: {str(e)}')
+
+    finally:
+        if connection:
+            connection.close()
+            cursor.close()
+
+
+
+Button(frame, width=39, pady=7, text='Log in', bg='#2F3C7E', fg='#F8F8FF', border=0, command=login_command).place(x=35, y=204)
+
+label = Label(frame, text="Don't have an account?", fg='black', bg='#F8F8FF', font=('Microsoft YaHei UI Light', 9))
+label.place(x=75, y=270)
+
+sign_up = Button(frame, width=6, text='Sign up', border=0, bg='#F8F8FF', cursor='hand2', fg='#2F3C7E',
+                 command=signup_command)
+sign_up.place(x=215, y=270)
+
+def load_data():
+    dataset = pd.read_excel('usa_rain_prediction_dataset_2024_2025.xlsx')
+    return dataset
+
+
+def prepare_data(dataset):
+    
+    features = dataset[['Temperature', 'Humidity', 'Wind Speed', 'Precipitation', 'Cloud Cover', 'Pressure', 'Water Level In River']]
+    rain_target = dataset['Rain Tomorrow']  
+    flood_target = dataset['Flood Risk']
+
+    scaler = StandardScaler()
+    features_scaled = scaler.fit_transform(features)
+
+    X_train, X_test, y_rain_train, y_rain_test, y_flood_train, y_flood_test = train_test_split(
+        features_scaled, rain_target, flood_target, test_size=0.2, random_state=42)
+
+    return X_train, X_test, y_rain_train, y_rain_test, y_flood_train, y_flood_test, scaler
+
+
+def train_models(X_train, y_rain_train, y_flood_train):
+    rain_model = LogisticRegression()
+    flood_model = LogisticRegression()
+
+    rain_model.fit(X_train, y_rain_train)
+    flood_model.fit(X_train, y_flood_train)
+
+    return rain_model, flood_model
+
+
+rain_model, flood_model, scaler = None, None, None
+
+def load_new_data():
+    dataset = pd.read_excel('usa_rain_prediction_dataset_2024_2025(dataset).xlsx')  # Новый датасет без игрек данных
+    return dataset
+
+def fahrenheit_to_celsius(fahrenheit):
+
+    return (fahrenheit - 32) * 5.0/9.0
+
+def predict_weather_and_flood(city, date, rain_model, flood_model, scaler, new_dataset):
+  
+    filtered_data = new_dataset[(new_dataset['Location'] == city) & (new_dataset['Date'] == date)]
+    if filtered_data.empty:
+        messagebox.showerror("Ошибка", "Данные для этого города и даты не найдены")
+        return None, None, None
+
+    
+    features = filtered_data[['Temperature', 'Humidity', 'Wind Speed', 'Precipitation', 'Cloud Cover', 'Pressure', 'Water Level In River']]
+    features_scaled = scaler.transform(features)
+
+    
+    rain_prediction = rain_model.predict(features_scaled)
+    flood_prediction = flood_model.predict(features_scaled)
+
+    return rain_prediction[0], flood_prediction[0], filtered_data
+
+def open_page1_window():
+    def search():
+        city = city_var.get()
+        date = date_entry.get()
+
+        
+        new_dataset = load_new_data()
+
+       
+        rain_prediction, flood_prediction, filtered_data = predict_weather_and_flood(city, date, rain_model,
+                                                                                     flood_model, scaler, new_dataset)
+
+        if filtered_data is not None:
+            temperature_celsius = fahrenheit_to_celsius(filtered_data['Temperature'].values[0])
+            temperature_celsius = round(temperature_celsius, 2)
+
+            temp_var.set(f"{temperature_celsius} °C")
+            hum_var.set(f"{filtered_data['Humidity'].values[0]:.2f} %")
+            wind_var.set(f"{filtered_data['Wind Speed'].values[0]:.2f} m/s")
+            cloud_var.set(f"{filtered_data['Cloud Cover'].values[0]:.2f} %")
+            press_var.set(f"{filtered_data['Pressure'].values[0]:.2f} Pa")
+            water_var.set(f"{filtered_data['Water Level In River'].values[0]:.2f} m")
+
+            
+            if rain_prediction == 1:
+                messagebox.showinfo("Prediction", "Prediction: Rainfall tomorrow")
+            else:
+                messagebox.showinfo("Prediction", "Prediction: No rainfall tomorrow")
+
+            if flood_prediction == 1:
+                messagebox.showinfo("Flood Risk", "Prediction: Flood risk detected")
+            else:
+                messagebox.showinfo("Flood Risk", "Prediction: No flood risk detected")
+
+    global rain_model, flood_model, scaler
+
+    
+    dataset = pd.read_excel('usa_rain_prediction_dataset_2024_2025.xlsx')
+    X_train, _, y_rain_train, _, y_flood_train, _, scaler = prepare_data(dataset)
+    rain_model, flood_model = train_models(X_train, y_rain_train, y_flood_train)
+
+    root1 = tk.Tk()
+    root1.title("Rainfall Prediction and Flood Risk Forecast")
+
+    window_width = 600
+    window_height = 650
+
+    screen_width = root1.winfo_screenwidth()
+    screen_height = root1.winfo_screenheight()
+    position_x = (screen_width - window_width) // 2
+    position_y = (screen_height - window_height) // 2
+
+    root1.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
+
+    root1.config(bg="white")
+   
+    instruction_label = tk.Label(root1, text="Enter the city:",
+                                 font=('Microsoft YaHei UI Light', 18, 'bold'), fg="#2F3C7E", bg="white")
+    instruction_label.pack(pady=5)
+  # 
+    cities = ["New York", "Los Angeles", "Chicago", "Houston", "Phoenix", "Philadelphia", "San Antonio",
+              "San Diego", "Dallas", "San Jose", "Austin", "Jacksonville", "Fort Worth", "Columbus",
+              "Indianapolis", "Charlotte", "San Francisco", "Seattle", "Denver", "Washington D.C."]
+
+    city_var = tk.StringVar(value="- - - - -")  # Default value
+    city_dropdown = tk.OptionMenu(root1, city_var, *cities)
+    city_dropdown.config(font=('Microsoft YaHei UI Light', 18, 'bold'), bg="white", fg="#000000")
+    city_dropdown.pack(pady=10)
+
+  
+    date_label = tk.Label(root1, text="Enter the date:", font=('Microsoft YaHei UI Light', 18, 'bold'),
+                          fg="#2F3C7E", bg="white")
+    date_label.pack(pady=5)
+
+ 
+    date_entry = tk.Entry(root1, font=('Microsoft YaHei UI Light', 18, 'bold'), fg="#000000", bg="white",
+                          relief="solid", borderwidth=1)
+    date_entry.pack(pady=10)
+
+
+    search_button = tk.Button(root1, text="Search", command=search, font=('Microsoft YaHei UI Light', 18, 'bold'),
+                              fg="white", bg="#2F3C7E", relief="solid", borderwidth=0)
+    search_button.pack(pady=20)
+
+    temp_var = tk.StringVar(value="")
+    hum_var = tk.StringVar(value="")
+    wind_var = tk.StringVar(value="")
+    cloud_var = tk.StringVar(value="")
+    press_var = tk.StringVar(value="")
+    water_var = tk.StringVar(value="")
+
+    labels_and_vars = [
+        ("Temperature:", temp_var),
+        ("Humidity:", hum_var),
+        ("Wind Speed:", wind_var),
+        ("Cloud Cover:", cloud_var),
+        ("Pressure:", press_var),
+        ("Water Level In River:", water_var),
+    ]
+
+    for text, var in labels_and_vars:
+        frame = tk.Frame(root1, bg="white")
+        frame.pack(pady=5)
+
+        label = tk.Label(frame, text=text, font=('Microsoft YaHei UI Light', 16, 'bold'), fg="#2F3C7E", bg="white")
+        label.grid(row=0, column=0, padx=5, sticky="w")
+
+        entry = tk.Entry(frame, textvariable=var, font=('Microsoft YaHei UI Light', 16, 'bold'), fg="#000000",
+                         bg="white", relief="solid", borderwidth=1, width=10)
+        entry.grid(row=0, column=1, padx=5, pady=5)
+
+    root1.mainloop()
+
+root.mainloop()
